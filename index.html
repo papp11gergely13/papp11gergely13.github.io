@@ -79,10 +79,11 @@ function normalizeBallSpeed(ball) {
 }
 
 function toggleGrab(paddle) {
-  if (!ball.grabbed && Math.abs(paddle.y + paddle.height / 2 - ball.y) < paddle.height / 2) {
+  // Increase the grab range by setting a larger distance threshold
+  if (!ball.grabbed && Math.abs(paddle.y + paddle.height / 2 - ball.y) < paddle.height) {
     if (
-      (paddle === leftPaddle && ball.x <= leftPaddle.x + leftPaddle.width + 5) ||
-      (paddle === rightPaddle && ball.x >= rightPaddle.x - ball.width - 5)
+      (paddle === leftPaddle && ball.x <= leftPaddle.x + leftPaddle.width + 10) ||
+      (paddle === rightPaddle && ball.x >= rightPaddle.x - ball.width - 10)
     ) {
       ball.grabbed = true;
       ball.grabbedBy = paddle;
@@ -92,8 +93,9 @@ function toggleGrab(paddle) {
   } else if (ball.grabbedBy === paddle) {
     ball.grabbed = false;
     ball.grabbedBy = null;
-    ball.dx = (paddle === leftPaddle ? ballSpeed : -ballSpeed) * 1.5;
-    ball.dy = (Math.random() - 0.5) * ballSpeed * 1.5;
+    // Increase release speed multiplier to make the ball faster
+    ball.dx = (paddle === leftPaddle ? ballSpeed : -ballSpeed) * 2.5;
+    ball.dy = (Math.random() - 0.5) * ballSpeed * 2.5;
   }
 }
 
