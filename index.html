@@ -1,46 +1,3 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Basic Pong HTML Game with Grab Mechanic</title>
-  <meta charset="UTF-8">
-  <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-    }
-    body {
-      background: black;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column; /* Stack the menu and canvas vertically */
-    }
-    #menu {
-      color: white;
-      font-size: 24px;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-    }
-    #game {
-      display: none; /* Hide the canvas initially */
-    }
-    button {
-      margin: 10px;
-      padding: 10px 20px;
-      font-size: 18px;
-      cursor: pointer;
-    }
-  </style>
-</head>
-<body>
-<div id="menu">
-  <h1>Welcome to Pong!</h1>
-  <p>Please select a mode:</p>
-  <button id="pvpButton">Player vs. Player (PvP)</button>
-  <button id="pveButton">Player vs. Environment (PvE)</button>
-</div>
-<canvas width="1750" height="750" id="game"></canvas>
 <script>
 const canvas = document.getElementById('game');
 const context = canvas.getContext('2d');
@@ -156,14 +113,36 @@ function startGame(mode) {
   document.getElementById('menu').style.display = 'none'; // Hide the menu
   canvas.style.display = 'block'; // Show the canvas
   requestAnimationFrame(loop); // Start the game loop
+
+  if (mode === 'PvE') {
+    // Start AI behavior for the left paddle in PvE mode
+    aiControl();
+  }
 }
 
 document.getElementById('pvpButton').addEventListener('click', () => startGame('PvP'));
 document.getElementById('pveButton').addEventListener('click', () => startGame('PvE'));
 
+function aiControl() {
+  // Simple AI that follows the ball's Y position
+  const aiSpeed = 5; // Speed of AI paddle movement
+  if (ball.y < leftPaddle.y + leftPaddle.height / 2) {
+    leftPaddle.dy = -aiSpeed; // Move up
+  } else if (ball.y > leftPaddle.y + leftPaddle.height / 2) {
+    leftPaddle.dy = aiSpeed; // Move down
+  } else {
+    leftPaddle.dy = 0; // Stop moving if aligned
+  }
+}
+
 function loop() {
   requestAnimationFrame(loop);
   context.clearRect(0, 0, canvas.width, canvas.height);
+
+  // AI Control Logic
+  if (document.getElementById('pveButton').style.display === 'none') {
+    aiControl();
+  }
 
   leftPaddle.y += leftPaddle.dy;
   rightPaddle.y += rightPaddle.dy;
@@ -258,10 +237,10 @@ function loop() {
     const fadeProgress = elapsedTime / fadeDuration;
     scoreFadeAmount = Math.max(1 - fadeProgress, 0);
 
-    context.fillStyle = rgba(0, 0, 255, ${scoreFadeAmount});
+    context.fillStyle = `rgba(0, 0, 255, ${scoreFadeAmount})`;
     context.fillText(leftScore, canvas.width / 2 - leftScoreWidth - 20, canvas.height / 2 - 20);
 
-    context.fillStyle = rgba(255, 0, 0, ${scoreFadeAmount});
+    context.fillStyle = `rgba(255, 0, 0, ${scoreFadeAmount})`;
     context.fillText(rightScore, canvas.width / 2 + 20, canvas.height / 2 - 20);
 
     if (fadeProgress >= 1) isFading = false;
@@ -278,7 +257,4 @@ function loop() {
   context.strokeStyle = 'rgba(255, 0, 0, 1)';
   context.strokeRect(canvas.width - grid, 0, grid, canvas.height);
 }
-
 </script>
-</body>
-</html>
