@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Basic Pong HTML Game with Grab Mechanic</title>
+  <meta charset="UTF-8">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+    body {
+      background: black;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+<canvas width="1750" height="750" id="game"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const context = canvas.getContext('2d');
+const grid = 9;
+const paddleHeight = grid * 15;
+const maxPaddleY = canvas.height - grid - paddleHeight;
+
+var paddleSpeed = 14;
+var ballSpeed = 15;
+var ballSpeedIncrement = 2;
+
+let leftScore = 0;
+let rightScore = 0;
+let scoreFadeAmount = 0;
+let isFading = false;
+let fadeDuration = 1000;
+let fadeStartTime;
+
+
+
+
+const leftPaddle = {
+  x: grid * 2,
+  y: canvas.height / 2 - paddleHeight / 2,
+  width: grid,
+  height: paddleHeight,
+  dy: 0
+};
+
+const rightPaddle = {
+  x: canvas.width - grid * 3,
+  y: canvas.height / 2 - paddleHeight / 2,
+  width: grid,
+  height: paddleHeight,
+  dy: 0
+};
+
+const ball = {
+  x: canvas.width / 2,
+  y: canvas.height / 2,
+  width: grid,
+  height: grid,
+  resetting: false,
+  grabbed: false,
+  grabbedBy: null,
+  dx: ballSpeed,
+  dy: 0
+};
+
+function collides(obj1, obj2) {
+  return obj1.x < obj2.x + obj2.width &&
+         obj1.x + obj1.width > obj2.x &&
+         obj1.y < obj2.y + obj2.height &&
+         obj1.y + obj1.height > obj2.y;
+}
+
+function normalizeBallSpeed(ball) {
+  const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+  const normalizedSpeed = ballSpeed / speed;
+  ball.dx *= normalizedSpeed;
+  ball.dy *= normalizedSpeed;
+}
+
+  function toggleGrab(paddle) {
+    // Increase the grab range by setting a larger distance threshold
+    // Check if the ball is within the play area before allowing a grab
+    if (
+      !ball.grabbed &&
+      Math.abs(paddle.y + paddle.height / 2 - ball.y) < paddle.height &&
+      ball.x > grid && ball.x < canvas.width - grid // New condition to prevent grabbing beyond goal lines
+    ) {
+      if (
+        (paddle === leftPaddle && ball.x <= leftPaddle.x + leftPaddle.width + 10) ||
+        (paddle === rightPaddle && ball.x >= rightPaddle.x - ball.width - 10)
+      ) {
+        ball.grabbed = true;
+        ball.grabbedBy = paddle;
+        ball.dx = 0;
+        ball.dy = 0;
+      }
+    } else if (ball.grabbedBy === paddle) {
+      ball.grabbed = false;
+      ball.grabbedBy = null;
+      // Increase release speed multiplier to make the ball faster
+      ball.dx = (paddle === leftPaddle ? ballSpeed : -ballSpeed) * 2.5;
+      ball.dy = (Math.random() - 0.5) * ballSpeed * 2.5;
+    }
+  }
+
+
+document.addEventListener('keydown', function(e) {
+  if (e.which === 68) {
+    toggleGrab(leftPaddle);
+  } else if (e.which === 37) {
+    toggleGrab(rightPaddle);
+  }
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.which === 38) {
+    rightPaddle.dy = -paddleSpeed;
+  } else if (e.which === 40) {
+    rightPaddle.dy = paddleSpeed;
+  }
+
+  if (e.which === 87) {
+    leftPaddle.dy = -paddleSpeed;
+  } else if (e.which === 83) {
+    leftPaddle.dy = paddleSpeed;
+  }
+});
+
+document.addEventListener('keyup', function(e) {
+  if (e.which === 38 || e.which === 40) {
+    rightPaddle.dy = 0;
+  }
+  if (e.which === 83 || e.which === 87) {
+    leftPaddle.dy = 0;
+  }
+});
+
+function loop() {
+  requestAnimationFrame(loop);
+  context.clearRect(0, 0, canvas.width, canvas.height);
+
+  leftPaddle.y += leftPaddle.dy;
+  rightPaddle.y += rightPaddle.dy;
+
+  if (leftPaddle.y < grid) leftPaddle.y = grid;
+  else if (leftPaddle.y > maxPaddleY) leftPaddle.y = maxPaddleY;
+
+  if (rightPaddle.y < grid) rightPaddle.y = grid;
+  else if (rightPaddle.y > maxPaddleY) rightPaddle.y = maxPaddleY;
+
+
+
+  context.fillStyle = 'white';
+  context.fillRect(leftPaddle.x, leftPaddle.y, leftPaddle.width, leftPaddle.height);
+  context.fillRect(rightPaddle.x, rightPaddle.y, rightPaddle.width, rightPaddle.height);
+
+  // Modify the ball behavior when grabbed
+  if (ball.grabbed) {
+    if (ball.grabbedBy === leftPaddle) {
+      ball.x = leftPaddle.x + leftPaddle.width + 1;
+      ball.y = leftPaddle.y + leftPaddle.height / 2 - ball.height / 2;
+    } else if (ball.grabbedBy === rightPaddle) {
+      ball.x = rightPaddle.x - ball.width - 1;
+      ball.y = rightPaddle.y + rightPaddle.height / 2 - ball.height / 2;
+    }
+  } else {
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+  }
+
+  if (ball.y < grid) {
+    ball.y = grid;
+    ball.dy *= -1;
+  } else if (ball.y + grid > canvas.height - grid) {
+    ball.y = canvas.height - grid * 2;
+    ball.dy *= -1;
+  }
+
+  if ((ball.x < 0 || ball.x > canvas.width) && !ball.resetting) {
+    ball.resetting = true;
+
+    // Increment score and set initial direction based on who scored
+    if (ball.x < 0) {
+      rightScore++;
+      ball.dx = -ballSpeed; // Send ball toward the left paddle
+    } else {
+      leftScore++;
+      ball.dx = ballSpeed; // Send ball toward the right paddle
+    }
+
+    scoreFadeAmount = 1;
+    isFading = true;
+    fadeStartTime = performance.now();
+
+    // Reset ball position after a short delay
+    setTimeout(() => {
+      ball.resetting = false;
+      ball.x = canvas.width / 2;
+      ball.y = canvas.height / 2;
+
+      // Keep ball speed direction set above, set random vertical velocity
+      ball.dy = (Math.random() - 0.5) * ballSpeed;
+    }, 400);
+  }
+
+  if (!ball.grabbed) {
+    if (collides(ball, leftPaddle)) {
+      let deltaY = ball.y - (leftPaddle.y + paddleHeight / 2);
+      ball.dy = deltaY * 0.35;
+      ball.dx *= -1;
+      ball.x = leftPaddle.x + leftPaddle.width;
+      normalizeBallSpeed(ball);
+    } else if (collides(ball, rightPaddle)) {
+      let deltaY = ball.y - (rightPaddle.y + paddleHeight / 2);
+      ball.dy = deltaY * 0.35;
+      ball.dx *= -1;
+      ball.x = rightPaddle.x - ball.width;
+      normalizeBallSpeed(ball);
+    }
+  }
+
+
+
+
+
+  if (ball.grabbed) {
+    context.beginPath();
+    context.arc(ball.x + ball.width / 2, ball.y + ball.height / 2, grid * 2, 0, Math.PI * 2);
+    context.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    context.lineWidth = 3;
+    context.stroke();
+  }
+  context.fillRect(ball.x, ball.y, ball.width, ball.height);
+
+  context.fillStyle = 'lightgrey';
+  context.fillRect(0, 0, canvas.width, grid);
+  context.fillRect(0, canvas.height - grid, canvas.width, canvas.height);
+  for (let i = grid; i < canvas.height - grid; i += grid * 2) {
+    context.fillRect(canvas.width / 2 - grid / 2, i, grid, grid);
+  }
+
+  context.font = '72px Arial';
+  const leftScoreWidth = context.measureText(leftScore).width;
+  const rightScoreWidth = context.measureText(rightScore).width;
+
+  if (isFading) {
+    const elapsedTime = performance.now() - fadeStartTime;
+    const fadeProgress = elapsedTime / fadeDuration;
+    scoreFadeAmount = Math.max(1 - fadeProgress, 0);
+
+    context.fillStyle = `rgba(0, 0, 255, ${scoreFadeAmount})`;
+    context.fillText(leftScore, canvas.width / 2 - leftScoreWidth - 20, canvas.height / 2 - 20);
+
+    context.fillStyle = `rgba(255, 0, 0, ${scoreFadeAmount})`;
+    context.fillText(rightScore, canvas.width / 2 + 20, canvas.height / 2 - 20);
+
+    if (fadeProgress >= 1) isFading = false;
+  } else {
+    context.fillStyle = 'black';
+    context.fillText(leftScore, canvas.width / 2 - leftScoreWidth - 20, canvas.height / 2 - 20);
+    context.fillText(rightScore, canvas.width / 2 + 20, canvas.height / 2 - 20);
+  }
+
+  context.strokeStyle = 'rgba(0, 0, 255, 1)';
+  context.lineWidth = 10;
+  context.strokeRect(0, 0, grid, canvas.height);
+
+  context.strokeStyle = 'rgba(255, 0, 0, 1)';
+  context.strokeRect(canvas.width - grid, 0, grid, canvas.height);
+  
+    // Ball collision with paddles
+  if (collides(ball, leftPaddle) || collides(ball, rightPaddle)) {
+    ballInvisible = true;  // Set the ball to be invisible on collision with paddle
+  }
+}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
