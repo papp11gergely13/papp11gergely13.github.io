@@ -36,6 +36,121 @@ let isFading = false;
 let fadeDuration = 1000;
 let fadeStartTime;
 
+const leftRocket = { active: false, x: 0, y: 0, dx: 0, dy: 0, speed: 30, width: grid * 2, height: grid };
+const rightRocket = { active: false, x: 0, y: 0, dx: 0, dy: 0, speed: 30, width: grid * 2, height: grid };
+
+
+document.addEventListener('keydown', function (e) {
+  if (e.which === 65 && !leftRocket.active) { // A key for left paddle
+    leftRocket.active = true;
+    leftRocket.x = leftPaddle.x + leftPaddle.width;
+    leftRocket.y = leftPaddle.y + leftPaddle.height / 2 - leftRocket.height / 2;
+
+    // Set initial direction straight to the right
+    leftRocket.dx = leftRocket.speed;
+    leftRocket.dy = 0;
+  } else if (e.which === 39 && !rightRocket.active) { // Right Arrow key for right paddle
+    rightRocket.active = true;
+    rightRocket.x = rightPaddle.x - rightRocket.width;
+    rightRocket.y = rightPaddle.y + rightPaddle.height / 2 - rightRocket.height / 2;
+
+    // Set initial direction straight to the left
+    rightRocket.dx = -rightRocket.speed;
+    rightRocket.dy = 0;
+  }
+});
+
+function updateRocket(rocket, color) {
+  if (rocket.active) {
+if (collides(rocket, ball) && rocket.active) {
+  const horizontalDirection = rocket.dx > 0 ? 1 : -1;
+  ball.dx = horizontalDirection * ballSpeed; // Ensure ballSpeed has a consistent value
+  ball.dy = 0; // Reset vertical movement
+  rocket.active = false; // Avoid duplicate collisions
+}
+
+
+    const trackingRange = 500; // Maximum distance for tracking the ball
+    const trackingAngle = Math.PI / 5; // Half the cone angle (e.g., 45 degrees for a 90-degree cone)
+
+    // Calculate distance to the ball
+    const distanceToBall = Math.sqrt(
+      Math.pow(ball.x - rocket.x, 2) + Math.pow(ball.y - rocket.y, 2)
+    );
+
+    // Calculate the angle to the ball from the rocket's current position
+    const directionX = ball.x - rocket.x;
+    const directionY = ball.y - rocket.y;
+    const angleToBall = Math.atan2(directionY, directionX);
+
+    // Calculate the current angle of the rocket's movement
+    const currentAngle = Math.atan2(rocket.dy, rocket.dx);
+
+    // Calculate the angle difference and normalize it to [-PI, PI]
+    let angleDifference = angleToBall - currentAngle;
+    if (angleDifference > Math.PI) angleDifference -= 2 * Math.PI;
+    if (angleDifference < -Math.PI) angleDifference += 2 * Math.PI;
+
+    // Check if the ball is within the tracking range and cone
+    if (distanceToBall <= trackingRange && Math.abs(angleDifference) <= trackingAngle) {
+      // Target the ball within the cone
+      const maxTurnAngle = Math.PI / 4; // Max angle the rocket can turn per frame
+      angleDifference = Math.max(-maxTurnAngle, Math.min(maxTurnAngle, angleDifference));
+
+      // Calculate the new angle
+      const newAngle = currentAngle + angleDifference;
+
+      // Reduce speed during sharp turns
+      const turningFactor = Math.abs(angleDifference) / maxTurnAngle;
+      const reducedSpeed = rocket.speed * (1 - turningFactor * 0.1); // Reduce speed up to 50% during sharp turns
+
+      // Update rocket's velocity based on the new angle
+      rocket.dx = Math.cos(newAngle) * reducedSpeed;
+      rocket.dy = Math.sin(newAngle) * reducedSpeed;
+    }
+
+    // Update rocket position
+    rocket.x += rocket.dx;
+    rocket.y += rocket.dy;
+
+    // Draw the rocket as a triangle
+    const baseSize = grid * 2; // Base width of the triangle
+    const heightSize = grid * 3; // Height of the triangle
+
+    // Calculate triangle vertices
+    const tipX = rocket.x + Math.cos(Math.atan2(rocket.dy, rocket.dx)) * heightSize;
+    const tipY = rocket.y + Math.sin(Math.atan2(rocket.dy, rocket.dx)) * heightSize;
+    const baseLeftX = rocket.x - Math.sin(Math.atan2(rocket.dy, rocket.dx)) * (baseSize / 2);
+    const baseLeftY = rocket.y + Math.cos(Math.atan2(rocket.dy, rocket.dx)) * (baseSize / 2);
+    const baseRightX = rocket.x + Math.sin(Math.atan2(rocket.dy, rocket.dx)) * (baseSize / 2);
+    const baseRightY = rocket.y - Math.cos(Math.atan2(rocket.dy, rocket.dx)) * (baseSize / 2);
+
+    // Draw the triangle
+    context.beginPath();
+    context.moveTo(tipX, tipY); // Tip of the triangle
+    context.lineTo(baseLeftX, baseLeftY); // Bottom left of the base
+    context.lineTo(baseRightX, baseRightY); // Bottom right of the base
+    context.closePath();
+
+    context.fillStyle = color;
+    context.fill();
+
+    // Check for collision with the ball
+    if (collides(rocket, ball)) {
+      normalizeBallSpeed(ball);
+      rocket.active = false; // Deactivate rocket
+    }
+
+    // Deactivate rocket if it leaves the screen
+    if (rocket.x < 0 || rocket.x > canvas.width || rocket.y < 0 || rocket.y > canvas.height) {
+      rocket.active = false;
+    }
+  }
+}
+
+
+
+
 
 
 
@@ -271,12 +386,14 @@ function loop() {
 
   context.strokeStyle = 'rgba(255, 0, 0, 1)';
   context.strokeRect(canvas.width - grid, 0, grid, canvas.height);
+
   
-    // Ball collision with paddles
-  if (collides(ball, leftPaddle) || collides(ball, rightPaddle)) {
-    ballInvisible = true;  // Set the ball to be invisible on collision with paddle
-  }
+  
+    // Update and render rockets
+  updateRocket(leftRocket, 'blue');
+  updateRocket(rightRocket, 'red');
 }
+
 
 requestAnimationFrame(loop);
 </script>
