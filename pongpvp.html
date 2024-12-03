@@ -62,11 +62,35 @@ document.addEventListener('keydown', function (e) {
 
 function updateRocket(rocket, color) {
   if (rocket.active) {
-if (collides(rocket, ball) && rocket.active) {
+if (collides(rocket, ball)) {
+  const speedBoost = 2.4; // Factor to boost the ball's speed
+  const decayRate = 0.05; // Rate at which the boost degrades per frame
+  const maxSpeedBoostFrames = 60; // Number of frames the boost lasts
+
+  // Deactivate the rocket
+  rocket.active = false;
+
+  // Boost the ball's speed and direction
   const horizontalDirection = rocket.dx > 0 ? 1 : -1;
-  ball.dx = horizontalDirection * ballSpeed; // Ensure ballSpeed has a consistent value
+  const speedIncrease = Math.sqrt(ball.dx ** 2 + ball.dy ** 2) * speedBoost;
+  ball.dx = horizontalDirection * speedIncrease;
   ball.dy = 0; // Reset vertical movement
-  rocket.active = false; // Avoid duplicate collisions
+  // Apply speed degradation over time
+  let boostFrames = 0;
+  function degradeSpeed() {
+    if (boostFrames < maxSpeedBoostFrames) {
+      const currentSpeed = Math.sqrt(ball.dx ** 2 + ball.dy ** 2);
+      const newSpeed = Math.max(currentSpeed * (1 - decayRate), ballSpeed); // Gradually reduce speed
+      const angle = Math.atan2(ball.dy, ball.dx);
+
+      ball.dx = Math.cos(angle) * newSpeed;
+      ball.dy = Math.sin(angle) * newSpeed;
+
+      boostFrames++;
+      requestAnimationFrame(degradeSpeed); // Continue degrading over frames
+    }
+  }
+  degradeSpeed();
 }
 
 
@@ -138,7 +162,7 @@ if (collides(rocket, ball) && rocket.active) {
     // Check for collision with the ball
     if (collides(rocket, ball)) {
       normalizeBallSpeed(ball);
-      rocket.active = false; // Deactivate rocket
+      rocket.active = true; // Deactivate rocket
     }
 
     // Deactivate rocket if it leaves the screen
