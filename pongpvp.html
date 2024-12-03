@@ -63,9 +63,9 @@ document.addEventListener('keydown', function (e) {
 function updateRocket(rocket, color) {
   if (rocket.active) {
 if (collides(rocket, ball)) {
-  const speedBoost = 2.4; // Factor to boost the ball's speed
+  const speedBoost = 2.0; // Factor to boost the ball's speed
   const decayRate = 0.05; // Rate at which the boost degrades per frame
-  const maxSpeedBoostFrames = 60; // Number of frames the boost lasts
+  const maxSpeedBoostFrames = 90; // Number of frames the boost lasts
 
   // Deactivate the rocket
   rocket.active = false;
@@ -94,7 +94,7 @@ if (collides(rocket, ball)) {
 }
 
 
-    const trackingRange = 500; // Maximum distance for tracking the ball
+    const trackingRange = 600; // Maximum distance for tracking the ball
     const trackingAngle = Math.PI / 5; // Half the cone angle (e.g., 45 degrees for a 90-degree cone)
 
     // Calculate distance to the ball
@@ -118,7 +118,7 @@ if (collides(rocket, ball)) {
     // Check if the ball is within the tracking range and cone
     if (distanceToBall <= trackingRange && Math.abs(angleDifference) <= trackingAngle) {
       // Target the ball within the cone
-      const maxTurnAngle = Math.PI / 4; // Max angle the rocket can turn per frame
+      const maxTurnAngle = Math.PI / 1; // Max angle the rocket can turn per frame
       angleDifference = Math.max(-maxTurnAngle, Math.min(maxTurnAngle, angleDifference));
 
       // Calculate the new angle
@@ -126,7 +126,7 @@ if (collides(rocket, ball)) {
 
       // Reduce speed during sharp turns
       const turningFactor = Math.abs(angleDifference) / maxTurnAngle;
-      const reducedSpeed = rocket.speed * (1 - turningFactor * 0.1); // Reduce speed up to 50% during sharp turns
+      const reducedSpeed = rocket.speed * (1 - turningFactor * 0.05); // Reduce speed up to 50% during sharp turns
 
       // Update rocket's velocity based on the new angle
       rocket.dx = Math.cos(newAngle) * reducedSpeed;
