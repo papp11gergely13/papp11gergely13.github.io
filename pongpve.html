@@ -25,7 +25,7 @@ const grid = 9;
 const paddleHeight = grid * 15;
 const maxPaddleY = canvas.height - grid - paddleHeight;
 
-var paddleSpeed = 12;
+var paddleSpeed = 14;
 var ballSpeed = 15;
 var ballSpeedIncrement = 2;
 
@@ -36,8 +36,56 @@ let isFading = false;
 let fadeDuration = 1000;
 let fadeStartTime;
 
-    // Existing code setup (e.g., canvas, context, paddle, and ball initialization)
+const leftRocket = {
+  active: false,
+  x: 0,
+  y: 0,
+  dx: 0,
+  dy: 0,
+  speed: 30,
+  width: grid * 2,
+  height: grid,
+  charges: 3,
+  maxCharges: 3,
+  rechargeRate: 8000, // 3 seconds per charge
+  lastRecharge: Date.now(),
+};
 
+const rightRocket = {
+  active: false,
+  x: 0,
+  y: 0,
+  dx: 0,
+  dy: 0,
+  speed: 30,
+  width: grid * 2,
+  height: grid,
+  charges: 3,
+  maxCharges: 3,
+  rechargeRate: 8000,
+  lastRecharge: Date.now(),
+};
+// Handle right mouse button click for activating the rocket on the right paddle
+canvas.addEventListener('mousedown', function(event) {
+  if (event.button === 0) { // Left mouse button (already used for grab)
+    toggleGrab(rightPaddle);
+  } else if (event.button === 2) { // Right mouse button
+    if (!rightRocket.active && rightRocket.charges > 0) { // Check if rocket is available and not active
+      rightRocket.active = true;
+      rightRocket.charges--; // Use one charge
+      rightRocket.x = rightPaddle.x - rightRocket.width;
+      rightRocket.y = rightPaddle.y + rightPaddle.height / 2 - rightRocket.height / 2;
+
+      rightRocket.dx = -rightRocket.speed;
+      rightRocket.dy = 0;
+    }
+  }
+});
+
+// Prevent the context menu (right-click menu) from appearing
+canvas.addEventListener('contextmenu', function(event) {
+  event.preventDefault();
+});
     let lastMouseY = null; // Track the last mouse Y position
     let throttleTimeout = null; // Timeout for throttling paddle updates
 
@@ -72,8 +120,161 @@ let fadeStartTime;
         toggleGrab(rightPaddle);
       }
     });
+// Recharge mechanism for rockets
+function rechargeRocket(rocket) {
+  const now = Date.now();
 
-    // The rest of your game code (e.g., loop, paddle movement logic, ball behavior)
+  // Start recharging only if charges are below the maximum
+  if (rocket.charges < rocket.maxCharges) {
+    if (now - rocket.lastRecharge >= rocket.rechargeRate) {
+      rocket.charges++; // Increment the charge
+      rocket.lastRecharge = now; // Reset the recharge timer
+    }
+  }
+}
+
+
+
+document.addEventListener("keydown", function (e) {
+  if (e.which === 65 && !leftRocket.active && leftRocket.charges > 0) { // 'A' key for left paddle
+    leftRocket.active = true;
+    leftRocket.charges--; // Use one charge
+    leftRocket.x = leftPaddle.x + leftPaddle.width;
+    leftRocket.y = leftPaddle.y + leftPaddle.height / 2 - leftRocket.height / 2;
+
+    leftRocket.dx = leftRocket.speed;
+    leftRocket.dy = 0;
+  } else if (e.which === 39 && !rightRocket.active && rightRocket.charges > 0) { // Right Arrow key for right paddle
+    rightRocket.active = true;
+    rightRocket.charges--; // Use one charge
+    rightRocket.x = rightPaddle.x - rightRocket.width;
+    rightRocket.y = rightPaddle.y + rightPaddle.height / 2 - rightRocket.height / 2;
+
+    rightRocket.dx = -rightRocket.speed;
+    rightRocket.dy = 0;
+  }
+});
+
+
+function updateRocket(rocket, color) {
+  if (rocket.active) {
+    if (collides(rocket, ball)) {
+      const speedBoost = 2.0;
+      const decayRate = 0.05;
+      const maxSpeedBoostFrames = 90;
+
+      rocket.active = false;
+
+      const horizontalDirection = rocket.dx > 0 ? 1 : -1;
+      const speedIncrease = Math.sqrt(ball.dx ** 2 + ball.dy ** 2) * speedBoost;
+      ball.dx = horizontalDirection * speedIncrease;
+      ball.dy = 0;
+
+      let boostFrames = 0;
+      function degradeSpeed() {
+        if (boostFrames < maxSpeedBoostFrames) {
+          const currentSpeed = Math.sqrt(ball.dx ** 2 + ball.dy ** 2);
+          const newSpeed = Math.max(currentSpeed * (1 - decayRate), ballSpeed);
+          const angle = Math.atan2(ball.dy, ball.dx);
+
+          ball.dx = Math.cos(angle) * newSpeed;
+          ball.dy = Math.sin(angle) * newSpeed;
+
+          boostFrames++;
+          requestAnimationFrame(degradeSpeed);
+        }
+      }
+      degradeSpeed();
+    }
+
+    // Rocket tracking logic (unchanged)
+    const trackingRange = 600;
+    const trackingAngle = Math.PI / 5;
+
+    const distanceToBall = Math.sqrt(
+      Math.pow(ball.x - rocket.x, 2) + Math.pow(ball.y - rocket.y, 2)
+    );
+    const directionX = ball.x - rocket.x;
+    const directionY = ball.y - rocket.y;
+    const angleToBall = Math.atan2(directionY, directionX);
+    const currentAngle = Math.atan2(rocket.dy, rocket.dx);
+
+    let angleDifference = angleToBall - currentAngle;
+    if (angleDifference > Math.PI) angleDifference -= 2 * Math.PI;
+    if (angleDifference < -Math.PI) angleDifference += 2 * Math.PI;
+
+    if (distanceToBall <= trackingRange && Math.abs(angleDifference) <= trackingAngle) {
+      const maxTurnAngle = Math.PI / 1;
+      angleDifference = Math.max(-maxTurnAngle, Math.min(maxTurnAngle, angleDifference));
+
+      const newAngle = currentAngle + angleDifference;
+      const turningFactor = Math.abs(angleDifference) / maxTurnAngle;
+      const reducedSpeed = rocket.speed * (1 - turningFactor * 0.05);
+
+      rocket.dx = Math.cos(newAngle) * reducedSpeed;
+      rocket.dy = Math.sin(newAngle) * reducedSpeed;
+    }
+
+    rocket.x += rocket.dx;
+    rocket.y += rocket.dy;
+
+    // Draw the rocket as a triangle (unchanged)
+    const baseSize = grid * 2;
+    const heightSize = grid * 3;
+
+    const tipX = rocket.x + Math.cos(Math.atan2(rocket.dy, rocket.dx)) * heightSize;
+    const tipY = rocket.y + Math.sin(Math.atan2(rocket.dy, rocket.dx)) * heightSize;
+    const baseLeftX = rocket.x - Math.sin(Math.atan2(rocket.dy, rocket.dx)) * (baseSize / 2);
+    const baseLeftY = rocket.y + Math.cos(Math.atan2(rocket.dy, rocket.dx)) * (baseSize / 2);
+    const baseRightX = rocket.x + Math.sin(Math.atan2(rocket.dy, rocket.dx)) * (baseSize / 2);
+    const baseRightY = rocket.y - Math.cos(Math.atan2(rocket.dy, rocket.dx)) * (baseSize / 2);
+
+    context.beginPath();
+    context.moveTo(tipX, tipY);
+    context.lineTo(baseLeftX, baseLeftY);
+    context.lineTo(baseRightX, baseRightY);
+    context.closePath();
+
+    context.fillStyle = color;
+    context.fill();
+
+    if (rocket.x < 0 || rocket.x > canvas.width || rocket.y < 0 || rocket.y > canvas.height) {
+      rocket.active = false;
+    }
+  }
+
+  // Call recharge logic for the rocket
+  rechargeRocket(rocket);
+}
+function drawRocketChargeDots() {
+  const centerX = canvas.width / 2; // Center of the canvas horizontally
+  const centerY = canvas.height / 2; // Center of the canvas vertically
+  const dotRadius = grid * 0.5; // Size of the dots
+  const spacing = grid * 3; // Spacing between the dots
+
+  // Draw left player's dots (blue) vertically
+  for (let i = 0; i < leftRocket.charges; i++) {
+    context.beginPath();
+    context.arc(centerX - 60, centerY - (leftRocket.maxCharges / 2) * spacing + i * spacing, dotRadius, 0, Math.PI * 2);
+    context.fillStyle = 'blue';
+    context.fill();
+  }
+
+  // Draw right player's dots (red) vertically
+  for (let i = 0; i < rightRocket.charges; i++) {
+    context.beginPath();
+    context.arc(centerX + 60, centerY - (rightRocket.maxCharges / 2) * spacing + i * spacing, dotRadius, 0, Math.PI * 2);
+    context.fillStyle = 'red';
+    context.fill();
+  }
+}
+
+
+
+
+
+
+
 
 
 const leftPaddle = {
@@ -189,10 +390,7 @@ function loop() {
   if (rightPaddle.y < grid) rightPaddle.y = grid;
   else if (rightPaddle.y > maxPaddleY) rightPaddle.y = maxPaddleY;
 
-  // Make left paddle follow ball when grabbed
-  if (ball.grabbed && ball.grabbedBy === leftPaddle) {
-    leftPaddle.y = ball.y - leftPaddle.height / 2; // Center paddle with ball on Y-axis
-  }
+
 
   context.fillStyle = 'white';
   context.fillRect(leftPaddle.x, leftPaddle.y, leftPaddle.width, leftPaddle.height);
@@ -222,19 +420,28 @@ function loop() {
 
   if ((ball.x < 0 || ball.x > canvas.width) && !ball.resetting) {
     ball.resetting = true;
-    if (ball.x < 0) rightScore++;
-    else leftScore++;
+
+    // Increment score and set initial direction based on who scored
+    if (ball.x < 0) {
+      rightScore++;
+      ball.dx = -ballSpeed; // Send ball toward the left paddle
+    } else {
+      leftScore++;
+      ball.dx = ballSpeed; // Send ball toward the right paddle
+    }
 
     scoreFadeAmount = 1;
     isFading = true;
     fadeStartTime = performance.now();
 
+    // Reset ball position after a short delay
     setTimeout(() => {
       ball.resetting = false;
       ball.x = canvas.width / 2;
       ball.y = canvas.height / 2;
-      ball.dx = ballSpeed;
-      ball.dy = 0;
+
+      // Keep ball speed direction set above, set random vertical velocity
+      ball.dy = (Math.random() - 0.5) * ballSpeed;
     }, 400);
   }
 
@@ -253,23 +460,7 @@ function loop() {
       normalizeBallSpeed(ball);
     }
   }
-  const maxAIPaddleSpeed = 50; // Set a maximum speed for the left paddle
 
-  // Left paddle AI movement to follow the ball's y position
-  if (!ball.grabbed || ball.grabbedBy !== leftPaddle) {
-    // Calculate the distance to the ball
-    const distanceToBall = ball.y - (leftPaddle.y + leftPaddle.height / 2);
-
-    // Adjust paddle speed based on distance, but limit it to maxAIPaddleSpeed
-    const aiPaddleSpeed = Math.sign(distanceToBall) * Math.min(Math.abs(distanceToBall * 0.2), maxAIPaddleSpeed);
-
-    // Move the paddle smoothly toward the ball's position
-    leftPaddle.y += aiPaddleSpeed;
-
-    // Constrain left paddle within canvas bounds
-    if (leftPaddle.y < grid) leftPaddle.y = grid;
-    else if (leftPaddle.y > maxPaddleY) leftPaddle.y = maxPaddleY;
-  }
 
 
 
@@ -290,27 +481,54 @@ function loop() {
     context.fillRect(canvas.width / 2 - grid / 2, i, grid, grid);
   }
 
-  context.font = '72px Arial';
-  const leftScoreWidth = context.measureText(leftScore).width;
-  const rightScoreWidth = context.measureText(rightScore).width;
+context.font = '72px Arial';
 
-  if (isFading) {
-    const elapsedTime = performance.now() - fadeStartTime;
-    const fadeProgress = elapsedTime / fadeDuration;
-    scoreFadeAmount = Math.max(1 - fadeProgress, 0);
+// Adjust these offsets as needed
+const scoreYPosition = canvas.height / 2 + 10; // Lower the score vertically
+const scoreXOffset = 100; // Move the scores farther from the centerline
 
-    context.fillStyle = `rgba(0, 0, 255, ${scoreFadeAmount})`;
-    context.fillText(leftScore, canvas.width / 2 - leftScoreWidth - 20, canvas.height / 2 - 20);
+const leftScoreWidth = context.measureText(leftScore).width;
+const rightScoreWidth = context.measureText(rightScore).width;
 
-    context.fillStyle = `rgba(255, 0, 0, ${scoreFadeAmount})`;
-    context.fillText(rightScore, canvas.width / 2 + 20, canvas.height / 2 - 20);
+if (isFading) {
+  const elapsedTime = performance.now() - fadeStartTime;
+  const fadeProgress = elapsedTime / fadeDuration;
+  scoreFadeAmount = Math.max(1 - fadeProgress, 0);
 
-    if (fadeProgress >= 1) isFading = false;
-  } else {
-    context.fillStyle = 'black';
-    context.fillText(leftScore, canvas.width / 2 - leftScoreWidth - 20, canvas.height / 2 - 20);
-    context.fillText(rightScore, canvas.width / 2 + 20, canvas.height / 2 - 20);
-  }
+  // Left score
+  context.fillStyle = `rgba(0, 0, 255, ${scoreFadeAmount})`;
+  context.fillText(leftScore, canvas.width / 2 - scoreXOffset - leftScoreWidth, scoreYPosition);
+
+  // Right score
+  context.fillStyle = `rgba(255, 0, 0, ${scoreFadeAmount})`;
+  context.fillText(rightScore, canvas.width / 2 + scoreXOffset, scoreYPosition);
+
+  if (fadeProgress >= 1) isFading = false;
+} else {
+  // Left score
+  context.fillStyle = 'black';
+  context.fillText(leftScore, canvas.width / 2 - scoreXOffset - leftScoreWidth, scoreYPosition);
+
+  // Right score
+  context.fillStyle = 'black';
+  context.fillText(rightScore, canvas.width / 2 + scoreXOffset, scoreYPosition);
+}
+
+// Left goal line
+context.strokeStyle = 'blue';
+context.lineWidth = grid;
+context.beginPath();
+context.moveTo(grid / 2, 0);
+context.lineTo(grid / 2, canvas.height);
+context.stroke();
+
+// Right goal line
+context.strokeStyle = 'red';
+context.lineWidth = grid;
+context.beginPath();
+context.moveTo(canvas.width - grid / 2, 0);
+context.lineTo(canvas.width - grid / 2, canvas.height);
+context.stroke();
 
   context.strokeStyle = 'rgba(0, 0, 255, 1)';
   context.lineWidth = 10;
@@ -318,7 +536,54 @@ function loop() {
 
   context.strokeStyle = 'rgba(255, 0, 0, 1)';
   context.strokeRect(canvas.width - grid, 0, grid, canvas.height);
+
+const maxAIPaddleSpeed = 50;
+let lastRocketTime = 0;
+const rocketCooldown = 8100; // 8 seconds 
+
+if (!ball.grabbed || ball.grabbedBy !== leftPaddle) {
+  const distanceToBall = ball.y - (leftPaddle.y + leftPaddle.height / 2);
+  const aiPaddleSpeed = Math.sign(distanceToBall) * Math.min(Math.abs(distanceToBall * 0.2), maxAIPaddleSpeed);
+  
+  leftPaddle.y += aiPaddleSpeed;
+
+  if (leftPaddle.y < grid) leftPaddle.y = grid;
+  else if (leftPaddle.y > maxPaddleY) leftPaddle.y = maxPaddleY;
+
+  const currentTime = Date.now();
+  if (currentTime - lastRocketTime >= rocketCooldown) {
+    useRocket();
+    lastRocketTime = currentTime;
+  }
 }
+
+function useRocket() {
+  simulateKeyPress();  // Simulate pressing the "A" key to activate rocket
+  console.log('AI uses rocket!');
+}
+
+function simulateKeyPress() {
+  const event = new KeyboardEvent('keydown', {
+    key: 'a',
+    code: 'KeyA',
+    keyCode: 65,
+    which: 65,
+    bubbles: true,
+    cancelable: true
+  });
+  document.dispatchEvent(event);
+}
+
+
+
+  
+    // Update and render rockets
+  updateRocket(leftRocket, 'blue');
+  updateRocket(rightRocket, 'red');
+  // Draw the rocket charge dots
+  drawRocketChargeDots();
+}
+
 
 requestAnimationFrame(loop);
 </script>
