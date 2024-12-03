@@ -36,112 +36,138 @@ let isFading = false;
 let fadeDuration = 1000;
 let fadeStartTime;
 
-const leftRocket = { active: false, x: 0, y: 0, dx: 0, dy: 0, speed: 30, width: grid * 2, height: grid };
-const rightRocket = { active: false, x: 0, y: 0, dx: 0, dy: 0, speed: 30, width: grid * 2, height: grid };
+const leftRocket = {
+  active: false,
+  x: 0,
+  y: 0,
+  dx: 0,
+  dy: 0,
+  speed: 30,
+  width: grid * 2,
+  height: grid,
+  charges: 3,
+  maxCharges: 3,
+  rechargeRate: 8000, // 3 seconds per charge
+  lastRecharge: Date.now(),
+};
+
+const rightRocket = {
+  active: false,
+  x: 0,
+  y: 0,
+  dx: 0,
+  dy: 0,
+  speed: 30,
+  width: grid * 2,
+  height: grid,
+  charges: 3,
+  maxCharges: 3,
+  rechargeRate: 8000,
+  lastRecharge: Date.now(),
+};
+
+// Recharge mechanism for rockets
+function rechargeRocket(rocket) {
+  const now = Date.now();
+
+  // Start recharging only if charges are below the maximum
+  if (rocket.charges < rocket.maxCharges) {
+    if (now - rocket.lastRecharge >= rocket.rechargeRate) {
+      rocket.charges++; // Increment the charge
+      rocket.lastRecharge = now; // Reset the recharge timer
+    }
+  }
+}
 
 
-document.addEventListener('keydown', function (e) {
-  if (e.which === 65 && !leftRocket.active) { // A key for left paddle
+
+document.addEventListener("keydown", function (e) {
+  if (e.which === 65 && !leftRocket.active && leftRocket.charges > 0) { // 'A' key for left paddle
     leftRocket.active = true;
+    leftRocket.charges--; // Use one charge
     leftRocket.x = leftPaddle.x + leftPaddle.width;
     leftRocket.y = leftPaddle.y + leftPaddle.height / 2 - leftRocket.height / 2;
 
-    // Set initial direction straight to the right
     leftRocket.dx = leftRocket.speed;
     leftRocket.dy = 0;
-  } else if (e.which === 39 && !rightRocket.active) { // Right Arrow key for right paddle
+  } else if (e.which === 39 && !rightRocket.active && rightRocket.charges > 0) { // Right Arrow key for right paddle
     rightRocket.active = true;
+    rightRocket.charges--; // Use one charge
     rightRocket.x = rightPaddle.x - rightRocket.width;
     rightRocket.y = rightPaddle.y + rightPaddle.height / 2 - rightRocket.height / 2;
 
-    // Set initial direction straight to the left
     rightRocket.dx = -rightRocket.speed;
     rightRocket.dy = 0;
   }
 });
 
+
 function updateRocket(rocket, color) {
   if (rocket.active) {
-if (collides(rocket, ball)) {
-  const speedBoost = 2.0; // Factor to boost the ball's speed
-  const decayRate = 0.05; // Rate at which the boost degrades per frame
-  const maxSpeedBoostFrames = 90; // Number of frames the boost lasts
+    if (collides(rocket, ball)) {
+      const speedBoost = 2.0;
+      const decayRate = 0.05;
+      const maxSpeedBoostFrames = 90;
 
-  // Deactivate the rocket
-  rocket.active = false;
+      rocket.active = false;
 
-  // Boost the ball's speed and direction
-  const horizontalDirection = rocket.dx > 0 ? 1 : -1;
-  const speedIncrease = Math.sqrt(ball.dx ** 2 + ball.dy ** 2) * speedBoost;
-  ball.dx = horizontalDirection * speedIncrease;
-  ball.dy = 0; // Reset vertical movement
-  // Apply speed degradation over time
-  let boostFrames = 0;
-  function degradeSpeed() {
-    if (boostFrames < maxSpeedBoostFrames) {
-      const currentSpeed = Math.sqrt(ball.dx ** 2 + ball.dy ** 2);
-      const newSpeed = Math.max(currentSpeed * (1 - decayRate), ballSpeed); // Gradually reduce speed
-      const angle = Math.atan2(ball.dy, ball.dx);
+      const horizontalDirection = rocket.dx > 0 ? 1 : -1;
+      const speedIncrease = Math.sqrt(ball.dx ** 2 + ball.dy ** 2) * speedBoost;
+      ball.dx = horizontalDirection * speedIncrease;
+      ball.dy = 0;
 
-      ball.dx = Math.cos(angle) * newSpeed;
-      ball.dy = Math.sin(angle) * newSpeed;
+      let boostFrames = 0;
+      function degradeSpeed() {
+        if (boostFrames < maxSpeedBoostFrames) {
+          const currentSpeed = Math.sqrt(ball.dx ** 2 + ball.dy ** 2);
+          const newSpeed = Math.max(currentSpeed * (1 - decayRate), ballSpeed);
+          const angle = Math.atan2(ball.dy, ball.dx);
 
-      boostFrames++;
-      requestAnimationFrame(degradeSpeed); // Continue degrading over frames
+          ball.dx = Math.cos(angle) * newSpeed;
+          ball.dy = Math.sin(angle) * newSpeed;
+
+          boostFrames++;
+          requestAnimationFrame(degradeSpeed);
+        }
+      }
+      degradeSpeed();
     }
-  }
-  degradeSpeed();
-}
 
+    // Rocket tracking logic (unchanged)
+    const trackingRange = 600;
+    const trackingAngle = Math.PI / 5;
 
-    const trackingRange = 600; // Maximum distance for tracking the ball
-    const trackingAngle = Math.PI / 5; // Half the cone angle (e.g., 45 degrees for a 90-degree cone)
-
-    // Calculate distance to the ball
     const distanceToBall = Math.sqrt(
       Math.pow(ball.x - rocket.x, 2) + Math.pow(ball.y - rocket.y, 2)
     );
-
-    // Calculate the angle to the ball from the rocket's current position
     const directionX = ball.x - rocket.x;
     const directionY = ball.y - rocket.y;
     const angleToBall = Math.atan2(directionY, directionX);
-
-    // Calculate the current angle of the rocket's movement
     const currentAngle = Math.atan2(rocket.dy, rocket.dx);
 
-    // Calculate the angle difference and normalize it to [-PI, PI]
     let angleDifference = angleToBall - currentAngle;
     if (angleDifference > Math.PI) angleDifference -= 2 * Math.PI;
     if (angleDifference < -Math.PI) angleDifference += 2 * Math.PI;
 
-    // Check if the ball is within the tracking range and cone
     if (distanceToBall <= trackingRange && Math.abs(angleDifference) <= trackingAngle) {
-      // Target the ball within the cone
-      const maxTurnAngle = Math.PI / 1; // Max angle the rocket can turn per frame
+      const maxTurnAngle = Math.PI / 1;
       angleDifference = Math.max(-maxTurnAngle, Math.min(maxTurnAngle, angleDifference));
 
-      // Calculate the new angle
       const newAngle = currentAngle + angleDifference;
-
-      // Reduce speed during sharp turns
       const turningFactor = Math.abs(angleDifference) / maxTurnAngle;
-      const reducedSpeed = rocket.speed * (1 - turningFactor * 0.05); // Reduce speed up to 50% during sharp turns
+      const reducedSpeed = rocket.speed * (1 - turningFactor * 0.05);
 
-      // Update rocket's velocity based on the new angle
       rocket.dx = Math.cos(newAngle) * reducedSpeed;
       rocket.dy = Math.sin(newAngle) * reducedSpeed;
     }
 
-    // Update rocket position
     rocket.x += rocket.dx;
     rocket.y += rocket.dy;
 
-    // Draw the rocket as a triangle
-    const baseSize = grid * 2; // Base width of the triangle
-    const heightSize = grid * 3; // Height of the triangle
+    // Draw the rocket as a triangle (unchanged)
+    const baseSize = grid * 2;
+    const heightSize = grid * 3;
 
-    // Calculate triangle vertices
     const tipX = rocket.x + Math.cos(Math.atan2(rocket.dy, rocket.dx)) * heightSize;
     const tipY = rocket.y + Math.sin(Math.atan2(rocket.dy, rocket.dx)) * heightSize;
     const baseLeftX = rocket.x - Math.sin(Math.atan2(rocket.dy, rocket.dx)) * (baseSize / 2);
@@ -149,28 +175,47 @@ if (collides(rocket, ball)) {
     const baseRightX = rocket.x + Math.sin(Math.atan2(rocket.dy, rocket.dx)) * (baseSize / 2);
     const baseRightY = rocket.y - Math.cos(Math.atan2(rocket.dy, rocket.dx)) * (baseSize / 2);
 
-    // Draw the triangle
     context.beginPath();
-    context.moveTo(tipX, tipY); // Tip of the triangle
-    context.lineTo(baseLeftX, baseLeftY); // Bottom left of the base
-    context.lineTo(baseRightX, baseRightY); // Bottom right of the base
+    context.moveTo(tipX, tipY);
+    context.lineTo(baseLeftX, baseLeftY);
+    context.lineTo(baseRightX, baseRightY);
     context.closePath();
 
     context.fillStyle = color;
     context.fill();
 
-    // Check for collision with the ball
-    if (collides(rocket, ball)) {
-      normalizeBallSpeed(ball);
-      rocket.active = true; // Deactivate rocket
-    }
-
-    // Deactivate rocket if it leaves the screen
     if (rocket.x < 0 || rocket.x > canvas.width || rocket.y < 0 || rocket.y > canvas.height) {
       rocket.active = false;
     }
   }
+
+  // Call recharge logic for the rocket
+  rechargeRocket(rocket);
 }
+function drawRocketChargeDots() {
+  const centerX = canvas.width / 2; // Center of the canvas horizontally
+  const centerY = canvas.height / 2; // Center of the canvas vertically
+  const dotRadius = grid * 0.5; // Size of the dots
+  const spacing = grid * 3; // Spacing between the dots
+
+  // Draw left player's dots (blue) vertically
+  for (let i = 0; i < leftRocket.charges; i++) {
+    context.beginPath();
+    context.arc(centerX - 60, centerY - (leftRocket.maxCharges / 2) * spacing + i * spacing, dotRadius, 0, Math.PI * 2);
+    context.fillStyle = 'blue';
+    context.fill();
+  }
+
+  // Draw right player's dots (red) vertically
+  for (let i = 0; i < rightRocket.charges; i++) {
+    context.beginPath();
+    context.arc(centerX + 60, centerY - (rightRocket.maxCharges / 2) * spacing + i * spacing, dotRadius, 0, Math.PI * 2);
+    context.fillStyle = 'red';
+    context.fill();
+  }
+}
+
+
 
 
 
@@ -382,27 +427,54 @@ function loop() {
     context.fillRect(canvas.width / 2 - grid / 2, i, grid, grid);
   }
 
-  context.font = '72px Arial';
-  const leftScoreWidth = context.measureText(leftScore).width;
-  const rightScoreWidth = context.measureText(rightScore).width;
+context.font = '72px Arial';
 
-  if (isFading) {
-    const elapsedTime = performance.now() - fadeStartTime;
-    const fadeProgress = elapsedTime / fadeDuration;
-    scoreFadeAmount = Math.max(1 - fadeProgress, 0);
+// Adjust these offsets as needed
+const scoreYPosition = canvas.height / 2 + 10; // Lower the score vertically
+const scoreXOffset = 100; // Move the scores farther from the centerline
 
-    context.fillStyle = `rgba(0, 0, 255, ${scoreFadeAmount})`;
-    context.fillText(leftScore, canvas.width / 2 - leftScoreWidth - 20, canvas.height / 2 - 20);
+const leftScoreWidth = context.measureText(leftScore).width;
+const rightScoreWidth = context.measureText(rightScore).width;
 
-    context.fillStyle = `rgba(255, 0, 0, ${scoreFadeAmount})`;
-    context.fillText(rightScore, canvas.width / 2 + 20, canvas.height / 2 - 20);
+if (isFading) {
+  const elapsedTime = performance.now() - fadeStartTime;
+  const fadeProgress = elapsedTime / fadeDuration;
+  scoreFadeAmount = Math.max(1 - fadeProgress, 0);
 
-    if (fadeProgress >= 1) isFading = false;
-  } else {
-    context.fillStyle = 'black';
-    context.fillText(leftScore, canvas.width / 2 - leftScoreWidth - 20, canvas.height / 2 - 20);
-    context.fillText(rightScore, canvas.width / 2 + 20, canvas.height / 2 - 20);
-  }
+  // Left score
+  context.fillStyle = `rgba(0, 0, 255, ${scoreFadeAmount})`;
+  context.fillText(leftScore, canvas.width / 2 - scoreXOffset - leftScoreWidth, scoreYPosition);
+
+  // Right score
+  context.fillStyle = `rgba(255, 0, 0, ${scoreFadeAmount})`;
+  context.fillText(rightScore, canvas.width / 2 + scoreXOffset, scoreYPosition);
+
+  if (fadeProgress >= 1) isFading = false;
+} else {
+  // Left score
+  context.fillStyle = 'black';
+  context.fillText(leftScore, canvas.width / 2 - scoreXOffset - leftScoreWidth, scoreYPosition);
+
+  // Right score
+  context.fillStyle = 'black';
+  context.fillText(rightScore, canvas.width / 2 + scoreXOffset, scoreYPosition);
+}
+
+// Left goal line
+context.strokeStyle = 'blue';
+context.lineWidth = grid;
+context.beginPath();
+context.moveTo(grid / 2, 0);
+context.lineTo(grid / 2, canvas.height);
+context.stroke();
+
+// Right goal line
+context.strokeStyle = 'red';
+context.lineWidth = grid;
+context.beginPath();
+context.moveTo(canvas.width - grid / 2, 0);
+context.lineTo(canvas.width - grid / 2, canvas.height);
+context.stroke();
 
   context.strokeStyle = 'rgba(0, 0, 255, 1)';
   context.lineWidth = 10;
@@ -416,6 +488,8 @@ function loop() {
     // Update and render rockets
   updateRocket(leftRocket, 'blue');
   updateRocket(rightRocket, 'red');
+  // Draw the rocket charge dots
+  drawRocketChargeDots();
 }
 
 
