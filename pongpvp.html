@@ -17,39 +17,13 @@
   </style>
 </head>
 <body>
+<audio> controls autoplay loop>
+  <source src="CITRUS.mp3">
+  <source src="PULSE.mp3">
+  <source src="Shock.mp3">
+</audio>
 <canvas width="1750" height="750" id="game"></canvas>
 <script>
-// List of background music tracks
-const musicTracks = [
-  'CITRUS.mp3', // Path to your first music file
-  'Shock.mp3', // Path to your second music file
-  'PULSE.mp3'  // Path to your third music file
-];
-
-let currentTrackIndex = 0; // Track index
-const bgMusic = new Audio(); // Create an Audio object
-
-// Function to play the next track
-function playNextTrack() {
-  bgMusic.src = musicTracks[currentTrackIndex]; // Set the current track
-  bgMusic.play(); // Play the music
-  bgMusic.onended = () => { // When the current track ends
-    currentTrackIndex = (currentTrackIndex + 1) % musicTracks.length; // Move to the next track
-    playNextTrack(); // Recursively play the next track
-  };
-}
-
-// Start the playlist when the game starts
-window.addEventListener('load', () => {
-  playNextTrack();
-});
-
-// Optional: Add a mute toggle
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'm' || e.key === 'M') { // 'M' key to toggle mute
-    bgMusic.muted = !bgMusic.muted;
-  }
-});
 
 const canvas = document.getElementById('game');
 const context = canvas.getContext('2d');
